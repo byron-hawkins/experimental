@@ -1,2 +1,7 @@
 experimental.code-workspace
 src/playground/cpp/thread/hello_world
+/bin/
+/build/
+/CMakeUserPresets.json
+__pycache__/
+test.log
