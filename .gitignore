@@ -6,3 +6,4 @@ src/playground/cpp/thread/hello_world
 __pycache__/
 test.log
 .vscode/
+**/*.swp
