@@ -5,3 +5,4 @@ src/playground/cpp/thread/hello_world
 /CMakeUserPresets.json
 __pycache__/
 test.log
+.vscode/

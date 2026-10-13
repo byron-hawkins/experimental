@@ -5,7 +5,15 @@
   },
   "[cpp]": {
     "editor.defaultFormatter": "ms-vscode.cpptools",
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "editor.inlineSuggest.enabled": false,
+    "editor.suggest.showSnippets": false,
+    "editor.wordBasedSuggestions": "off",
+    "C_Cpp.suggestSnippets": false
   },
+  "github.copilot.enable": {
+    "cpp": false
+  },
+  "C_Cpp.default.cppStandard": "c++17",
   "C_Cpp.clang_format_style": "file"
 }
