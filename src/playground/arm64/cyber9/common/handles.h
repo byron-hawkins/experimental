@@ -9,8 +9,10 @@
 namespace handle {
 
 class File {
+  static constexpr unsigned syscall = SYS_openat;
+
  public:
-  File(const char *filename, int flags, int mode) : _fd(AT_FDCWD), _filename(filename), _flags(flags), _mode(mode) {}
+  File(const char *filename, int flags, int mode) : _fd(AT_FDCWD), _filename(filename), _flags(flags), _mode(mode), _syscall(syscall) {}
 
   const char *name() const { return _filename; }
 
@@ -19,18 +21,19 @@ class File {
   bool is_open() const { return _fd > 0 && _fd != AT_FDCWD; }
 
  private:
-  static constexpr unsigned _syscall = SYS_openat;
-
   int _fd;
   const char *const _filename;
   int _flags;
   int _mode;
+  unsigned _syscall;
 };
 
 class Stream {
+  static constexpr unsigned syscall = SYS_mmap;
+
  public:
   Stream(size_t size, int prot, int flags, int fd = -1, off_t offset = 0)
-      : _size(size), _buffer(nullptr), _prot(prot), _flags(flags), _fd(fd), _offset(offset) {}
+      : _size(size), _buffer(nullptr), _prot(prot), _flags(flags), _fd(fd), _offset(offset), _syscall(syscall) {}
 
   void *raw() { return _buffer; }
 
@@ -39,14 +42,13 @@ class Stream {
   size_t size() const { return _size; }
 
  private:
-  static constexpr unsigned _syscall = SYS_mmap;
-
   const size_t _size;
   void *_buffer;
   int _prot;
   int _flags;
   int _fd;
   off_t _offset;
+  unsigned _syscall;
 };
 
 extern "C" {
