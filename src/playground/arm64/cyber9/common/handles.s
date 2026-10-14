@@ -1,8 +1,9 @@
 .text
 
-.global filestream
 .global openfile
 .global flash
+.global filestream
+.global randomstream
 
 /**** open a file ****/
 openfile:
@@ -92,6 +93,46 @@ stride:
   umov  w3, v1.b[0]
   cmp   x3, #0
   b.ne stride   /* loop */
+
+/**** copy random to stream ****/
+randomstream:
+// TODO: changed signature:
+// • x0: sink
+// • x1: buffer
+// • x2: source
+  mov   x6,   x1              /* retain the configuration in x6 */
+  ldr   x1,   [x0, #8]        /* x1: extract the buffer from the stream */
+  ldr   x0,   [x6]            /* access Random::_file */
+  ldrsw x0,   [x0]            /* x0: fd */
+  ldrsx x2,   [x6, #0x10]     /* x2: count */
+  ldrsx w8,   [x6, #0x14]     /* x5: SYS_mmap */
+  svc 0x80
+
+  ldr   w3,   [x6, #0x8]      /* x3: _low, also offset */
+  ldr   w4,   [x6, #0xc]      /* x4: _high, also span */
+  sub   x4,   x4, x3
+  clz   x5,   x4              /* x5: mask */
+  ldr   x0,   #0x7fffffffffffffff
+  dec   x5
+  asr   x5,   x0, x5
+
+  /*
+
+     • ldr x2, random      // TODO: where to get another random buffer:
+     • while x2 < _count:
+       • ldr x3, [x2]
+       • x2++
+       • loop:
+         • TODO: when bits drop below |mask|, load another
+         • and x5, x3, x4
+         • cmp x5, x4
+         • b.ls continue
+         • shr x3
+         • b loop
+       • continue
+       • str x5, [x1]
+
+   */
 
 quit:
   ret
