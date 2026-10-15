@@ -1,4 +1,5 @@
-#include <atmoic>
+#include <atomic>
+#include <condition_variable>
 #include <iostream>
 #include <limits>
 #include <mutex>
@@ -65,80 +66,79 @@ class Tasks {
 
   static constexpr unsigned max = 8;
 
-  class Task {
-   public:
-    Task(Tasks &tasks) : _tasks(tasks) {}
+  void stripe() {
+    std::cout << "• task starts, now have " << _running << std::endl;
 
-    void start() {
-      while (true) {
-        Position begin = _tasks.next();
-        if (begin == All::instance()->end()) return;
+    while (true) {
+      Position begin = next();
+      if (begin == All::instance()->end()) return;
 
-        std::unique_ptr<StripeCandidateSet> candidates = std::make_unique<StripeCandidateSet>();
-        for (Position i = begin; i < All::instance()->end() - 1; i++) {
-          for (Position j = i + 1; j < All::instance()->end(); j++) {
-            Pair p(i, j);
-            std::cout << "• " << p << std::endl;
+      std::unique_ptr<StripeCandidateSet> candidates = std::make_unique<StripeCandidateSet>();
+      for (Position step = begin + 1; step < All::instance()->end(); step++) {
+        Pair p(begin, step);
+        // std::cout << "• " << p << std::endl;
 
-            // TODO: access pattern for _tasks.bound
-            if (p.taxi() < _tasks.bound) candidates->emplace_back(p);
-            if (p.bound() < _tasks.bound) {
-              std::cout << "---- bound " << p.bound() << " ----" << std::endl;
-              _tasks.bound = p.bound();
-            }
-          }
-        }
-
-        _tasks.commit(std::move(candidates));
+        unsigned best = _bound.load();
+        if (p.taxi() < best) candidates->emplace_back(p);
+        while (p.bound() < best) _bound.compare_exchange_strong(best, p.bound());
       }
+      commit(std::move(candidates));
     }
-
-   private:
-    Tasks &_tasks;
-  };
+  }
 
  public:
-  Tasks() : _bound(std::numeric_limits<unsigned>::max()), _next(All::instance()->begin()) {}
+  Tasks() : _bound(std::numeric_limits<unsigned>::max()), _running(0), _next(All::instance()->begin()) {}
 
   void start() {
-    std::vector<std::thread> threads;
-    std::vector<Task> tasks;
+    std::unique_lock<std::mutex> access(_x);
 
+    std::vector<std::thread> threads;
     for (unsigned i = 0; i < max; i++) {
-      tasks.push_back(Task(*this));
-      threads.push_back(std::thread(&Task::start, std::ref(tasks.back()));
+      _running++;
+      threads.push_back(std::thread(&Tasks::stripe, this));
     }
 
-    // TODO: wait until _next reaches the end
+    _c.wait(access, [&running = _running]() { return running == 0; });
 
     for (std::thread &t : threads) t.join();
   }
 
   void report() {
+    unsigned total = 0;
+
     std::cout << "• check " << _candidates.size() << " candidate stripes" << std::endl;
-    for (std::unique_ptr<StripeCandidateSet> &strip : _candidates) {
-      for (const Pair &p : *candidates) std::cout << "  • " << p << std::endl;
+
+    for (std::unique_ptr<StripeCandidateSet> &stripe : _candidates) {
+      total += stripe->size();
+      for (const Pair &p : *stripe) std::cout << "  • " << p << std::endl;
     }
+
+    std::cout << "• found " << total << " total conadidates" << std::endl;
   }
 
  private:
   Position next() {
     std::unique_lock<std::mutex> access(_x);
 
-    if (_next == All::instance()->end())
-      return _next;
-    else
-      return _next++;
+    if (_next != All::instance()->end()) _next++;
+    if (_next == All::instance()->end()) {
+      if (--_running == 0) _c.notify_one();
+
+      std::cout << "• task completes, now have " << _running << std::endl;
+    }
+    return _next;
   }
 
-  void commit(std::unique_ptr<StripeCandidateSet> candidates) {
+  void commit(std::unique_ptr<StripeCandidateSet> stripe) {
     std::lock_guard<std::mutex> access(_x);
 
-    _candidates.push_back(std::move(candidate));
+    _candidates.push_back(std::move(stripe));
   }
 
   std::mutex _x;
+  std::condition_variable _c;
   std::atomic<unsigned> _bound;
+  unsigned _running;
 
   CandidateSet _candidates;
   Position _next;
@@ -155,7 +155,7 @@ void generate() {
   std::mt19937 g(r());
   std::uniform_int_distribution d(-1000, 1000);
 
-  for (unsigned i = 0; i < 100; i++) {
+  for (unsigned i = 0; i < 1000; i++) {
     All::instance()->emplace_back(Point({d(g), d(g)}));
   }
 }
