@@ -1,5 +1,6 @@
 #include <atomic>
 #include <condition_variable>
+#include <cstddef>
 #include <iostream>
 #include <limits>
 #include <mutex>
@@ -12,7 +13,7 @@ class handle {
  public:
   handle() : _t(nullptr) {}
   handle(T &t) : _t(&t) {};
-  handle(nullptr_t) : _t(nullptr) {}
+  handle(std::nullptr_t) : _t(nullptr) {}
 
   T *operator->() { return _t; }
   T &operator*() { return *_t; }
@@ -43,11 +44,18 @@ class Pair {
     return (d + (d >> 1));
   }
 
+  double distance() const {
+    int x = _a->at(0) - _b->at(0);
+    int y = _a->at(1) - _b->at(1);
+    double d = ((x * x) + (y * y));
+    return sqrt(d);
+  }
+
   Position a() const { return _a; }
   Position b() const { return _b; }
 
-  std::vector<int> indexes() {
-    return {static_cast<int>(std::distance(_a, All::instance()->cbegin())), static_cast<int>(std::distance(_b, All::instance()->cbegin()))};
+  std::vector<int> indexes() const {
+    return {static_cast<int>(std::distance(All::instance()->cbegin(), _a)), static_cast<int>(std::distance(All::instance()->cbegin(), _b))};
   }
 
   friend std::ostream &operator<<(std::ostream &o, const Pair &p) {
@@ -108,12 +116,23 @@ class Tasks {
 
     std::cout << "• check " << _candidates.size() << " candidate stripes" << std::endl;
 
+    std::vector<int> indexes;
+    double nearest = std::numeric_limits<double>::max();
     for (std::unique_ptr<StripeCandidateSet> &stripe : _candidates) {
       total += stripe->size();
-      for (const Pair &p : *stripe) std::cout << "  • " << p << std::endl;
+      for (const Pair &p : *stripe) {
+        std::cout << "  • " << p << std::endl;
+
+        double d = p.distance();
+        if (d < nearest) {
+          nearest = d;
+          indexes = p.indexes();
+        }
+      }
     }
 
     std::cout << "• found " << total << " total conadidates" << std::endl;
+    std::cout << "• min distance is " << nearest << " with indexes [" << indexes.at(0) << ", " << indexes.at(1) << "]" << std::endl;
   }
 
  private:
