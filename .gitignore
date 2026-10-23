@@ -7,3 +7,5 @@ __pycache__/
 test.log
 .vscode/
 **/*.swp
+src/playground/cs/**/bin/
+src/playground/cs/**/obj/
