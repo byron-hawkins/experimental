@@ -6,22 +6,22 @@ namespace InputParser {
 
   class Quantity {
     public class Arguments {
-      public int count;
+      public uint count;
     };
 
     public Arguments arguments;
 
     public Quantity() {
       arguments = new();
-      root = new("Random number generator");
-      count = new("--quantity", "-q");
-      count.Description = "Quantity of random numbers to generate";
-      count.DefaultValueFactory = parseResult => 0;
-      root.Options.Add(count);
+      _count = new("--quantity", "-q");
+      _count.Description = "Quantity of random numbers to generate";
+      _count.DefaultValueFactory = parseResult => 0U;
+      _root = new("Random number generator");
+      _root.Options.Add(_count);
     }
 
     public bool parse(string[] args) {
-      ParseResult result = root.Parse(args);
+      ParseResult result = _root.Parse(args);
       if (result.Errors.Count > 0) {
         Console.WriteLine("Error parsing command line:");
         foreach (ParseError e in result.Errors) {
@@ -29,7 +29,7 @@ namespace InputParser {
         }
         Environment.Exit(1);
       }
-      return ((arguments.count = result.GetValue(count)) != 0);
+      return ((arguments.count = result.GetValue(_count)) != 0);
     }
 
     public void query() {
@@ -43,7 +43,7 @@ namespace InputParser {
             Console.WriteLine("• exiting");
             Environment.Exit(1);
           }
-          arguments.count = Int32.Parse(input);
+          arguments.count = UInt32.Parse(input);
           if (arguments.count == 0) {
             Console.WriteLine("• exiting");
             Environment.Exit(1);
@@ -55,8 +55,8 @@ namespace InputParser {
       } while (arguments.count == 0);
     }
 
-    private RootCommand root;
-    private Option<int> count;
+    private RootCommand _root;
+    private Option<uint> _count;
   }
 
 }
