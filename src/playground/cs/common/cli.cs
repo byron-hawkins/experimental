@@ -7,6 +7,7 @@ namespace InputParser {
   class Quantity {
     public class Arguments {
       public uint count;
+      public bool verbose;
     };
 
     public Arguments arguments;
@@ -16,8 +17,11 @@ namespace InputParser {
       _count = new("--quantity", "-q");
       _count.Description = "Quantity of random numbers to generate";
       _count.DefaultValueFactory = parseResult => 0U;
+      _verbose = new("--verbose", "-v");
+      _verbose.DefaultValueFactory = parseResult => false;
       _root = new("Random number generator");
       _root.Options.Add(_count);
+      _root.Options.Add(_verbose);
     }
 
     public bool parse(string[] args) {
@@ -29,6 +33,7 @@ namespace InputParser {
         }
         Environment.Exit(1);
       }
+      arguments.verbose = result.GetValue(_verbose);
       return ((arguments.count = result.GetValue(_count)) != 0);
     }
 
@@ -57,6 +62,7 @@ namespace InputParser {
 
     private RootCommand _root;
     private Option<uint> _count;
+    private Option<bool> _verbose;
   }
 
 }

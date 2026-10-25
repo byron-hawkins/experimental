@@ -3,13 +3,19 @@ using System;
 namespace InputGenerator {
 
   class Uniform {
-    public static int[] int32(uint count) {
+    public static int[] int32(uint count, int? min = null, int? max = null) {
       Console.WriteLine($"• generate {count} random 32-bit integers with equal distribution");
 
       Random r = new();
       int[] a = new int[count];
-      for (int i = 0; i < count; i++) {
-        a[i] = r.Next();
+      if (max is int sentinel) {
+        if (min is int least) {
+          for (int i = 0; i < count; i++) { a[i] = r.Next(least, sentinel); }
+        } else {
+          for (int i = 0; i < count; i++) { a[i] = r.Next(sentinel); }
+        }
+      } else {
+        for (int i = 0; i < count; i++) { a[i] = r.Next(); }
       }
       return a;
     }
@@ -19,9 +25,7 @@ namespace InputGenerator {
 
       Random r = new();
       InputData.Point<int>[] a = new InputData.Point<int>[count];
-      for (int i = 0; i < count; i++) {
-        a[i] = new InputData.Point<int>(r.Next(), r.Next());
-      }
+      for (int i = 0; i < count; i++) { a[i] = new InputData.Point<int>(r.Next(), r.Next()); }
       return a;
     }
   }
