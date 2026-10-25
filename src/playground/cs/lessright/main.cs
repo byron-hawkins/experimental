@@ -2,37 +2,20 @@
 using System.Diagnostics;
 
 class Node {
-  public struct Pivot {
-    public Pivot(int position) { _integral = (1U << position); }
-
-    public uint narrow(int i) { return ((uint)i) - (_integral >> 1); }
-
-    public void raise(int steps = 1) { _integral <<= steps; }
-    public void lower(int steps = 1) { _integral >>= steps; }
-
-    public bool decides(uint i) { return i < _integral; }
-
-    public uint debugvalue() { return _integral; }
-
-    uint _integral;
-  }
-
-  public Node(uint to_inset, uint to_count, int height) {
-    _inset = to_inset;
-    _count = to_count;
+  public Node(int height) {
     _height = height;
-    _pivot = new(0);
+    _count = 1;
     _left = _right = null;
   }
 
-  public uint inset() { return _inset; }
   public uint count() { return _count; }
   public int height() { return _height; }
-  public ref Pivot pivot() { return ref _pivot; }
   public void increment(uint amount = 1) { _count += amount; }
 
   public bool isLeaf() { return _left == null && _right == null; }
+  public Node? left() { return _left; }
   public void left(Node l) { _left = l; }
+  public Node? right() { return _right; }
   public void right(Node r) { _right = r; }
 
   public interface Visitor {
@@ -49,18 +32,17 @@ class Node {
     v.exit(this);
   }
 
-  private uint _inset;
-  private uint _count;
   private int _height;
-  private Pivot _pivot;
+  private uint _count;
 
   private Node? _left;
   private Node? _right;
 }
 
 static class Extension {
-  public static IEnumerable<T> Invert<T>(this T[] c) {
-    for (uint i = (uint)c.Length; i > 0U; i--) yield return c[i - 1];
+  public static IEnumerable<T> Invert<T>(this T[] c, uint skip = 0) {
+    uint end = ((uint)c.Length);
+    for (uint i = (end - skip); i > 0U; i--) yield return c[i - 1];
   }
 }
 
@@ -68,9 +50,7 @@ class Printer : Node.Visitor {
   public Printer() { _indent = 0; }
 
   public void enter(Node n) { _indent++; }
-  public void at(Node n) {
-    Console.WriteLine("".PadLeft(_indent) + $"• inset {n.inset()}, count {n.count()}, height {n.height()}, pivot {n.pivot().debugvalue()}");
-  }
+  public void at(Node n) { Console.WriteLine("".PadLeft(_indent) + $"• count {n.count()}, height {n.height()}"); }
   public void exit(Node n) { _indent--; }
 
   private int _indent;
@@ -85,7 +65,7 @@ class Computation {
     _progress = (count - 1U);
     _output = new uint[count];
 
-    _root = new(0U, 0U, Int32.MaxValue);
+    _root = new(0); /* placeholder to avoid possible null */
   }
 
   public void prepare() { _input = InputGenerator.Uniform.int32(_count); }
@@ -98,7 +78,8 @@ class Computation {
     Console.WriteLine($"• reverse input check:");
     foreach (int i in _input.Invert()) Console.WriteLine($"  • {i}");
 
-    foreach (int i in _input.Invert()) {
+    _root = new(_input[_input.Length - 1]);
+    foreach (int i in _input.Invert(skip: 1)) {
       account(i);
       break;
     }
@@ -108,22 +89,35 @@ class Computation {
     Console.WriteLine($"• elapsed time: {_timer.Elapsed.TotalMilliseconds.ToString("0.00###")}");
   }
 
-  private void account(int i) {
+  private uint account(int i) {
     Console.WriteLine("account()");
 
+    uint count = 0;
     Node walk = _root;
     while (true) {
-      if (walk.isLeaf()) {
-        _output[_progress--] = walk.count();
-        if (walk.height() == (uint)i) {
-          walk.increment();
+      if (i == walk.height()) {
+        walk.increment();
+        count += (walk.left()?.count() ?? 0);
+        return count;
+      }
+
+      bool left = (i < walk.height());
+      if (left) {
+        walk.increment();
+        if (walk.left() is Node step) {
+          walk = step;
+          continue;
         } else {
-          Console.WriteLine("raise pivot");
-          while (!walk.pivot().decides((uint)i)) { walk.pivot().raise(); }
-          uint inset = walk.pivot().narrow(i);
-          walk.right(new Node(inset, 1, i));  // TODO: how to init the pivot?
+          walk.left(new Node(i));
+          return count;
         }
-        return;
+      } else {
+        count += walk.count();
+        if (walk.right() is Node step) {
+          walk = step;
+        } else {
+          walk.right(new Node(i));
+        }
       }
     }
   }
