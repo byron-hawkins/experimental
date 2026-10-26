@@ -58,7 +58,7 @@ class StringRadix {
         shift(ref h, zeros);
         zeros = 0;
       }
-      shift(ref h, (int) count);
+      shift(ref h, (int)count);
     }
     if (zeros > 0) shift(ref h, zeros);
     return h;
@@ -66,6 +66,95 @@ class StringRadix {
 
   private readonly int _hash;
   private readonly uint[] _buckets;
+}
+
+struct Swap {
+  public string root;
+  public string self;
+  public int left;
+  public int right;
+}
+
+class Group {
+  public Group(string root) {
+    _root = root;
+    _members = new();
+    _members.Add(_root);
+  }
+
+  public void Add(string s) { _members.Add(s); }
+
+  public void print() {
+    Console.WriteLine($"• group '{_root}' with {_members.Count()} members:");
+    foreach (string s in _members) Console.WriteLine($"• {s}");
+  }
+
+  private string _root;
+  private List<string> _members;
+}
+
+class Anagram : IEnumerable<Group>, System.Collections.IEnumerable {
+  public Anagram() {
+    _g = new();
+    _q = new();
+  }
+
+  public int Count() { return _q.Count(); }
+  public void Add(string s) { _q.AddLast(s); }
+
+  System.Collections.IEnumerator System.Collections.IEnumerator.GetEnumerator() { return this.GetEnumerator(); }
+
+  public IEnumerator<Group> GetEnumerator() { return _g.GetEnumerator(); }
+
+  public void decompose() {
+    List<Swap> swaps;
+    while (_q.Count > 0) {
+      LinkedListNode<string> top = _q.First, walk = top.Next, remove = null;
+      Group g = new(top.Value);
+      _g.Add(g);
+      _q.RemoveFirst();
+      while (walk is LinkedListNode<string>) {
+        Swap? swap = findSwap(top.Value, walk.Value);
+        if (swap is Swap member) {
+          g.Add(member.self);
+          swaps.Add(member);
+          remove = walk;
+        }
+        walk = walk.Next;
+        if (remove is LinkedListNode<string>) {
+          _q.Remove(remove);
+          remove = null;
+        }
+      }
+      // drain swaps against _q
+      for (int i = 0; i < swaps.Count(); i++) {
+        if (_q.First is null) break;
+        LinkedListNode<string> walk = _q.First, remove = null;
+        do {
+          Swap? swap = findSwap(swaps[i], walk.Value);
+          if (swap is Swap member) {
+            g.Add(member.self);
+            swaps.Add(member);
+            remove = walk;
+          }
+          walk = walk.Next;
+          if (remove is LinkedListNode<string>) {
+            _q.Remove(remove);
+            remove = null;
+          }
+        } while (walk is LinkedListNode<string>);
+      }
+      swaps.Clear();
+    }
+  }
+
+  private Swap? findSwap(string root, string s) { return null; }
+
+  private Swap? findSwap(Swap member, string s) { return null; }
+
+  private List<Group> _g;
+
+  private LinkedList<string> _q;
 }
 
 namespace InputGenerator {
@@ -131,18 +220,18 @@ public class Executable {
       foreach (string s in corpus) Console.WriteLine($"  • {s}");
     }
 
-    ConcurrentDictionary<StringRadix, List<string>> radixGroups = new();
-    foreach (var s in corpus) {
-      StringRadix r = new(s);   // TODO: where/how to keep these?
-      List<string> g = radixGroups.GetOrAdd(r, new List<string>());
-      g.Add(s);
+    ConcurrentDictionary<StringRadix, Anagram> radixGroups = new();
+    foreach (string s in corpus) {
+      StringRadix r = new(s);
+      Anagram a = radixGroups.GetOrAdd(r, new Anagram());
+      a.Add(s);
     }
 
     if (cli.arguments.verbose) {
       Console.WriteLine("• radix groups:");
-      foreach (var g in radixGroups) {   // TODO: what type is this?
-        Console.WriteLine($"  • group of {g.Value.Count()} strings:");
-        foreach (string s in g.Value) Console.WriteLine($"    • {s}");
+      foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) {
+        Console.WriteLine($"  • group of {entry.Value.Count()} strings:");
+        foreach (Group g in entry.Value) g.print();
       }
     }
   }
@@ -167,6 +256,19 @@ public class Executable {
      • radix in Nsqrt(N) * A
      • similarity graph in N
 
+
+   • within each radix group
+     • every member gets a string group
+     • enqueue all and foreach pop S
+     • compare each q on Q and if swappable
+       • add q to S.group
+       • add q to S.queue
+       • q retain swap positions A, B
+     • for each on S.Q, compare against q on Q
+       • if A, B are both same or both different, skip
+       • position D is different, containing q.D
+       • find q.D and retain swap positions D and q.D
+       • add q to S group and S.Q
 
    • similarity graph -> string groups by DFS in Nlog(N)
 
