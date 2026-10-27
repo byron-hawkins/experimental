@@ -121,6 +121,48 @@ class Group {
   private HashSet<string> _members;
 }
 
+class Delta {
+  public Delta() {
+    _pair = new int[2];
+    _a = _b = "";
+  }
+
+  public Swap? MakeSwap() {
+    if (_index == 0) return null;
+    return new Swap(_a, _b, _pair[0], _pair[1]);
+  }
+
+  public bool FindSwap(string a, string b) {
+    _a = a;
+    _b = b;
+    _index = 0;
+    for (int i = 0; i < _a.Length; i++) {
+      if (_a[i] != _b[i]) {
+        if (!Add(i)) return false;
+      }
+    }
+
+    switch (_index) {
+      case 0:
+      case 2: return true;
+      default: return false;
+    }
+  }
+
+  private bool Add(int i) {
+    if (_index < 2) {
+      _pair[_index++] = i;
+      return true;
+    }
+    return false;
+  }
+
+  private int _index;
+  private int[] _pair;
+  private string _a;
+  private string _b;
+}
+
 class Anagram {
   public Anagram() {
     _g = new();
@@ -133,6 +175,7 @@ class Anagram {
   public IEnumerable<Group> groups() { return _g; }
 
   public void decompose() {
+    Delta delta = new();
     bool stepped = false;
     List<Swap> swaps = new();
     while (_q.First is LinkedListNode<string> top) {
@@ -143,11 +186,10 @@ class Anagram {
         _q.RemoveFirst();
         do {
           stepped = false;
-          Swap? swap = findSwap(top.Value, walk.Value);
-          if (swap is Swap member) {
-            g.Add(member.self);
-            swaps.Add(member);
+          if (delta.FindSwap(top.Value, walk.Value)) {
+            g.Add(walk.Value);
             remove = walk;
+            if (delta.MakeSwap() is Swap member) swaps.Add(member);
           }
           if (walk.Next is LinkedListNode<string> step) {
             walk = step;
@@ -159,7 +201,6 @@ class Anagram {
           }
         } while (stepped);
 
-        // drain swaps against _q
         for (int i = 0; i < swaps.Count(); i++) {
           if (_q.First is null) break;
           walk = _q.First;
@@ -187,18 +228,6 @@ class Anagram {
         break;  // singleton group already added
       }
     }
-  }
-
-  private Swap? findSwap(string root, string s) {
-    List<int> delta = new();
-    for (int i = 0; i < root.Length; i++) {
-      if (root[i] != s[i]) {
-        if (delta.Count() == 2) return null;
-        delta.Add(i);
-      }
-    }
-    if (delta.Count() != 2) return null;
-    return new Swap(root, s, delta[0], delta[1]);
   }
 
   private Swap? findSwap(Swap member, string s) {
