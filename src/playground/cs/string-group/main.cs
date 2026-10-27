@@ -2,193 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Collections.Concurrent;
 
-class StringRadix {
-  public StringRadix(string s) {
-    _buckets = new uint[size];
-    foreach (char c in s) _buckets[(c - a)]++;
-
-    _hash = hash();
-  }
-
-  public static bool operator<(StringRadix left, StringRadix right) {
-    for (uint i = 0; i < size; i++) {
-      if (left._buckets[i] < right._buckets[i]) return true;
-      if (left._buckets[i] > right._buckets[i]) return false;
-    }
-    return false;
-  }
-
-  public static bool operator>(StringRadix left, StringRadix right) {
-    for (uint i = 0; i < size; i++) {
-      if (left._buckets[i] > right._buckets[i]) return true;
-      if (left._buckets[i] < right._buckets[i]) return false;
-    }
-    return false;
-  }
-
-  public static bool operator ==(StringRadix left, StringRadix right) {
-    for (uint i = 0; i < size; i++)
-      if (left._buckets[i] != right._buckets[i]) return false;
-    return true;
-  }
-
-  public static bool operator !=(StringRadix left, StringRadix right) {
-    for (uint i = 0; i < size; i++)
-      if (left._buckets[i] != right._buckets[i]) return true;
-    return false;
-  }
-
-  public override bool Equals(object? o) { return (o is StringRadix r) ? (this == r) : false; }
-  public override int GetHashCode() { return _hash; }
-
-  private static readonly int size = 26;
-  private static readonly int a = (int)'a';
-
-  private int hash() {
-    void shift(ref int h, int i) { h = (((h << 5) + h) ^ i); }
-
-    int h = 0;
-    int zeros = 0;
-    foreach (uint count in _buckets) {
-      if (count == 0) {
-        zeros++;
-        continue;
-      }
-      if (zeros > 0) {
-        shift(ref h, zeros);
-        zeros = 0;
-      }
-      shift(ref h, (int)count);
-    }
-    if (zeros > 0) shift(ref h, zeros);
-    return h;
-  }
-
-  private readonly int _hash;
-  private readonly uint[] _buckets;
-}
-
-struct Swap {
-  public string root;
-  public string self;
-  public int left;
-  public int right;
-
-  public Swap(string a, string b, int l, int r) {
-    root = a;
-    self = b;
-    left = l;
-    right = r;
-  }
-}
-
-class Group {
-  public Group(string root) {
-    _root = root;
-    _members = new();
-    _members.Add(_root);
-  }
-
-  // TODO: how to elide duplicates?
-  public void Add(string s) { _members.Add(s); }
-
-  public void print() {
-    Console.WriteLine($"  • group '{_root}' with {_members.Count()} members:");
-    foreach (string s in _members) Console.WriteLine($"    • {s}");
-  }
-
-  private string _root;
-  private List<string> _members;
-}
-
-class Anagram {
-  public Anagram() {
-    _g = new();
-    _q = new();
-  }
-
-  public int Count() { return _q.Count(); }
-  public void Add(string s) { _q.AddLast(s); }
-
-  public IEnumerable<Group> groups() { return _g; }
-
-  public void decompose() {
-    bool stepped = false;
-    List<Swap> swaps = new();
-    while (_q.First is LinkedListNode<string> top) {
-      Group g = new(top.Value);
-      _g.Add(g);
-      if (top.Next is LinkedListNode<string> walk) {
-        LinkedListNode<string>? remove = null;
-        _q.RemoveFirst();
-        do {
-          stepped = false;
-          Swap? swap = findSwap(top.Value, walk.Value);
-          if (swap is Swap member) {
-            g.Add(member.self);
-            swaps.Add(member);
-            remove = walk;
-          }
-          if (walk.Next is LinkedListNode<string> step) {
-            walk = step;
-            stepped = true;
-          }
-          if (remove is LinkedListNode<string>) {
-            _q.Remove(remove);
-            remove = null;
-          }
-        } while (stepped);
-
-        // drain swaps against _q
-        for (int i = 0; i < swaps.Count(); i++) {
-          if (_q.First is null) break;
-          walk = _q.First;
-          do {
-            stepped = false;
-            Swap? swap = findSwap(swaps[i], walk.Value);
-            if (swap is Swap member) {
-              g.Add(member.self);
-              swaps.Add(member);
-              remove = walk;
-            }
-            if (walk.Next is LinkedListNode<string> step) {
-              walk = step;
-              stepped = true;
-            }
-            // TODO: if removal can be done with a dispose, can simply break after failed step
-            if (remove is LinkedListNode<string>) {
-              _q.Remove(remove);
-              remove = null;
-            }
-          } while (stepped);
-        }
-        swaps.Clear();
-      } else {
-        break;  // singleton group already added
-      }
-    }
-  }
-
-  private Swap? findSwap(string root, string s) {
-    List<int> delta = new();
-    for (int i = 0; i < root.Length; i++) {
-      if (root[i] != s[i]) {
-        if (delta.Count() == 2) return null;
-        delta.Add(i);
-      }
-    }
-    if (delta.Count() == 2) return new Swap(root, s, delta[0], delta[1]);
-    else
-      return null;
-  }
-
-  private Swap? findSwap(Swap member, string s) { return null; }
-
-  private List<Group> _g;
-
-  private LinkedList<string> _q;
-}
-
 namespace InputGenerator {
 
   class StringProcessor {
@@ -230,6 +43,64 @@ namespace InputGenerator {
 
 }
 
+class Test {
+  public void evaluate(ConcurrentDictionary<StringRadix, Anagram> radixGroups) {
+    Console.WriteLine($"• evaluating {radixGroups.Count()} radix groups");
+    foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) {
+      Console.WriteLine($"  • evaluating radix group {entry.Key}");
+      foreach (Group g in entry.Value.groups()) {
+        if (!evaluate(g)) { Console.WriteLine($"    • Error swap coverage is incomplete on group {g.root()}"); }
+        foreach (Group g2 in entry.Value.groups()) {
+          if (!evaluate(g, g2)) { Console.WriteLine($"    • Error swap found between {g.root()} and {g2.root()}"); }
+        }
+      }
+    }
+  }
+
+  private bool evaluate(Group g) {
+    if (g.Count() == 1) return true;
+
+    bool[] visited = new bool[g.Count()];
+    List<string> s = new(g.members());
+
+    List<int> q = new();
+    visited[0] = true;
+    q.Add(0);
+    int coverage = 1;
+    while (q.Count > 0) {
+      int here = q[q.Count - 1];
+      q.RemoveAt(q.Count - 1);
+      for (int i = 0; i < s.Count; i++) {
+        if (visited[i]) continue;
+        if (swappable(s[here], s[i])) {
+          if (++coverage == s.Count) return true;
+          visited[i] = true;
+          q.Add(i);
+        }
+      }
+    }
+    return false;
+  }
+
+  private bool evaluate(Group one, Group two) {
+    if (one == two) return true;
+    foreach (string s1 in one.members()) {
+      foreach (string s2 in two.members()) {
+        if (swappable(s1, s2)) return false;
+      }
+    }
+    return true;
+  }
+
+  private bool swappable(string a, string b) {
+    uint delta = 0;
+    for (int i = 0; i < a.Length; i++) {
+      if (a[i] != b[i]) delta++;
+    }
+    return delta == 0 || delta == 2;
+  }
+}
+
 /*
  * metrics: n total strings, s = |string|, r = unique radix bins
  * • for each string (n)
@@ -244,7 +115,7 @@ public class Executable {
     if (!cli.parse(args)) cli.query();
 
     string[] corpus =
-        InputGenerator.Uniform.strings(cli.arguments.count, new InputGenerator.LowerCaseAlphabet(), new InputGenerator.FixedRandomStringLength(5));
+        InputGenerator.Uniform.strings(cli.arguments.count, new InputGenerator.LowerCaseAlphabet(), new InputGenerator.FixedRandomStringLength(12));
     corpus = InputGenerator.StringProcessor.expand(corpus, new pod.Range<int>(3, 5), new pod.Range<int>(5, 8));
 
     if (cli.arguments.verbose) {
@@ -261,7 +132,7 @@ public class Executable {
 
     if (cli.arguments.verbose) {
       Console.WriteLine("• anagrams:");
-      foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) { Console.WriteLine($"  • anagram of {entry.Value.Count()} strings"); }
+      foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) { Console.WriteLine($"  • Anagram {entry.Key} of {entry.Value.Count()} strings"); }
     }
 
     foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) entry.Value.decompose();
@@ -272,6 +143,15 @@ public class Executable {
         foreach (Group g in entry.Value.groups()) g.print();
       }
     }
+
+    Test test = new();
+    test.evaluate(radixGroups);
+
+    // TODO: test it by groups:
+    // • in group:
+    //   • swappable by delta count
+    //   • check graph connected
+    // • cross group: no 2-delta
   }
 }
 

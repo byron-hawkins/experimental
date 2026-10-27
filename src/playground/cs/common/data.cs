@@ -14,6 +14,25 @@ namespace InputData {
 
 }
 
+namespace OutputData {
+
+  class Comma {
+    public Comma() { _skip = true; }
+
+    public override string ToString() {
+      if (_skip) {
+        _skip = false;
+        return "";
+      } else {
+        return ",";
+      }
+    }
+
+    private bool _skip;
+  }
+
+}
+
 namespace pod {
 
   public struct Range<I>
