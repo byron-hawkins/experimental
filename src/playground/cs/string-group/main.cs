@@ -73,6 +73,13 @@ struct Swap {
   public string self;
   public int left;
   public int right;
+
+  public Swap(string a, string b, int l, int r) {
+    root = a;
+    self = b;
+    left = l;
+    right = r;
+  }
 }
 
 class Group {
@@ -82,18 +89,19 @@ class Group {
     _members.Add(_root);
   }
 
+  // TODO: how to elide duplicates?
   public void Add(string s) { _members.Add(s); }
 
   public void print() {
-    Console.WriteLine($"• group '{_root}' with {_members.Count()} members:");
-    foreach (string s in _members) Console.WriteLine($"• {s}");
+    Console.WriteLine($"  • group '{_root}' with {_members.Count()} members:");
+    foreach (string s in _members) Console.WriteLine($"    • {s}");
   }
 
   private string _root;
   private List<string> _members;
 }
 
-class Anagram : IEnumerable<Group>, System.Collections.IEnumerable {
+class Anagram {
   public Anagram() {
     _g = new();
     _q = new();
@@ -102,53 +110,77 @@ class Anagram : IEnumerable<Group>, System.Collections.IEnumerable {
   public int Count() { return _q.Count(); }
   public void Add(string s) { _q.AddLast(s); }
 
-  System.Collections.IEnumerator System.Collections.IEnumerator.GetEnumerator() { return this.GetEnumerator(); }
-
-  public IEnumerator<Group> GetEnumerator() { return _g.GetEnumerator(); }
+  public IEnumerable<Group> groups() { return _g; }
 
   public void decompose() {
-    List<Swap> swaps;
-    while (_q.Count > 0) {
-      LinkedListNode<string> top = _q.First, walk = top.Next, remove = null;
+    bool stepped = false;
+    List<Swap> swaps = new();
+    while (_q.First is LinkedListNode<string> top) {
       Group g = new(top.Value);
       _g.Add(g);
-      _q.RemoveFirst();
-      while (walk is LinkedListNode<string>) {
-        Swap? swap = findSwap(top.Value, walk.Value);
-        if (swap is Swap member) {
-          g.Add(member.self);
-          swaps.Add(member);
-          remove = walk;
-        }
-        walk = walk.Next;
-        if (remove is LinkedListNode<string>) {
-          _q.Remove(remove);
-          remove = null;
-        }
-      }
-      // drain swaps against _q
-      for (int i = 0; i < swaps.Count(); i++) {
-        if (_q.First is null) break;
-        LinkedListNode<string> walk = _q.First, remove = null;
+      if (top.Next is LinkedListNode<string> walk) {
+        LinkedListNode<string>? remove = null;
+        _q.RemoveFirst();
         do {
-          Swap? swap = findSwap(swaps[i], walk.Value);
+          stepped = false;
+          Swap? swap = findSwap(top.Value, walk.Value);
           if (swap is Swap member) {
             g.Add(member.self);
             swaps.Add(member);
             remove = walk;
           }
-          walk = walk.Next;
+          if (walk.Next is LinkedListNode<string> step) {
+            walk = step;
+            stepped = true;
+          }
           if (remove is LinkedListNode<string>) {
             _q.Remove(remove);
             remove = null;
           }
-        } while (walk is LinkedListNode<string>);
+        } while (stepped);
+
+        // drain swaps against _q
+        for (int i = 0; i < swaps.Count(); i++) {
+          if (_q.First is null) break;
+          walk = _q.First;
+          do {
+            stepped = false;
+            Swap? swap = findSwap(swaps[i], walk.Value);
+            if (swap is Swap member) {
+              g.Add(member.self);
+              swaps.Add(member);
+              remove = walk;
+            }
+            if (walk.Next is LinkedListNode<string> step) {
+              walk = step;
+              stepped = true;
+            }
+            // TODO: if removal can be done with a dispose, can simply break after failed step
+            if (remove is LinkedListNode<string>) {
+              _q.Remove(remove);
+              remove = null;
+            }
+          } while (stepped);
+        }
+        swaps.Clear();
+      } else {
+        break;  // singleton group already added
       }
-      swaps.Clear();
     }
   }
 
-  private Swap? findSwap(string root, string s) { return null; }
+  private Swap? findSwap(string root, string s) {
+    List<int> delta = new();
+    for (int i = 0; i < root.Length; i++) {
+      if (root[i] != s[i]) {
+        if (delta.Count() == 2) return null;
+        delta.Add(i);
+      }
+    }
+    if (delta.Count() == 2) return new Swap(root, s, delta[0], delta[1]);
+    else
+      return null;
+  }
 
   private Swap? findSwap(Swap member, string s) { return null; }
 
@@ -228,10 +260,16 @@ public class Executable {
     }
 
     if (cli.arguments.verbose) {
-      Console.WriteLine("• radix groups:");
+      Console.WriteLine("• anagrams:");
+      foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) { Console.WriteLine($"  • anagram of {entry.Value.Count()} strings"); }
+    }
+
+    foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) entry.Value.decompose();
+
+    if (cli.arguments.verbose) {
+      Console.WriteLine("• groups:");
       foreach (KeyValuePair<StringRadix, Anagram> entry in radixGroups) {
-        Console.WriteLine($"  • group of {entry.Value.Count()} strings:");
-        foreach (Group g in entry.Value) g.print();
+        foreach (Group g in entry.Value.groups()) g.print();
       }
     }
   }
