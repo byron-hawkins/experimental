@@ -85,18 +85,40 @@ class StringRadix {
 }
 
 struct Swap {
-  public string root;
-  public string self;
-  public int place1;  // places are not ordered
-  public int place2;
-
   // TODO: possible to object-initialize instead?
-  public Swap(string a, string b, int one, int two) {
-    root = a;
-    self = b;
-    place1 = one;
-    place2 = two;
+  public Swap(string s, int one, int two) {
+    _self = s;
+    _place1 = one;
+    _place2 = two;
   }
+
+  public string Get() { return _self; }
+
+  public Swap? FindSwap(string s) {
+    int inside, outside;
+    if (_self[_place1] != s[_place1]) {
+      if (_self[_place2] != s[_place2]) return null;  // if swappable, already found
+      outside = s.IndexOf(_self[_place1]);
+      if (_self[outside] != s[_place1]) return null;  // not swappable: 3+ rotation
+      inside = _place1;
+    } else if (_self[_place2] != s[_place2]) {
+      outside = s.IndexOf(_self[_place2]);
+      if (_self[outside] != s[_place2]) return null;  // if swappable, already found
+      inside = _place2;
+    } else {
+      return null;  // if swappable, already found
+    }
+
+    for (int i = 0; i < s.Length; i++) {
+      if (i == inside || i == outside) continue;
+      if (_self[i] != s[i]) return null;
+    }
+    return new Swap(s, inside, outside);
+  }
+
+  private string _self;
+  private int _place1;  // places are not ordered
+  private int _place2;
 }
 
 class Group {
@@ -124,20 +146,19 @@ class Group {
 class Delta {
   public Delta() {
     _pair = new int[2];
-    _a = _b = "";
+    _s = "";
   }
 
   public Swap? MakeSwap() {
     if (_index == 0) return null;
-    return new Swap(_a, _b, _pair[0], _pair[1]);
+    return new Swap(_s, _pair[0], _pair[1]);
   }
 
   public bool FindSwap(string a, string b) {
-    _a = a;
-    _b = b;
+    _s = b;
     _index = 0;
-    for (int i = 0; i < _a.Length; i++) {
-      if (_a[i] != _b[i]) {
+    for (int i = 0; i < a.Length; i++) {
+      if (a[i] != b[i]) {
         if (!Add(i)) return false;
       }
     }
@@ -159,11 +180,25 @@ class Delta {
 
   private int _index;
   private int[] _pair;
-  private string _a;
-  private string _b;
+  private string _s;
 }
 
 class Anagram {
+  class Removal : IDisposable {
+    public Removal(LinkedList<string> q) {
+      _q = q;
+      _n = null;
+    }
+
+    public void Load(LinkedListNode<string> n) { _n = n; }
+    public void Dispose() {
+      if (_n != null) _q.Remove(_n);
+    }
+
+    private LinkedList<string> _q;
+    private LinkedListNode<string>? _n;
+  }
+
   public Anagram() {
     _g = new();
     _q = new();
@@ -176,80 +211,47 @@ class Anagram {
 
   public void decompose() {
     Delta delta = new();
-    bool stepped = false;
     List<Swap> swaps = new();
     while (_q.First is LinkedListNode<string> top) {
       Group g = new(top.Value);
       _g.Add(g);
       if (top.Next is LinkedListNode<string> walk) {
-        LinkedListNode<string>? remove = null;
         _q.RemoveFirst();
-        do {
-          stepped = false;
-          if (delta.FindSwap(top.Value, walk.Value)) {
-            g.Add(walk.Value);
-            remove = walk;
-            if (delta.MakeSwap() is Swap member) swaps.Add(member);
+        while (true) {
+          using (Removal remove = new(_q)) {
+            if (delta.FindSwap(top.Value, walk.Value)) {
+              g.Add(walk.Value);
+              remove.Load(walk);
+              if (delta.MakeSwap() is Swap member) swaps.Add(member);
+            }
+            if (walk.Next is LinkedListNode<string> step) walk = step;
+            else
+              break;
           }
-          if (walk.Next is LinkedListNode<string> step) {
-            walk = step;
-            stepped = true;
-          }
-          if (remove is LinkedListNode<string>) {
-            _q.Remove(remove);
-            remove = null;
-          }
-        } while (stepped);
+        }
 
         for (int i = 0; i < swaps.Count(); i++) {
           if (_q.First is null) break;
           walk = _q.First;
-          do {
-            stepped = false;
-            Swap? swap = findSwap(swaps[i], walk.Value);
-            if (swap is Swap member) {
-              g.Add(member.self);
-              swaps.Add(member);
-              remove = walk;
+          while (true) {
+            using (Removal remove = new(_q)) {
+              Swap? swap = swaps[i].FindSwap(walk.Value);
+              if (swap is Swap member) {
+                g.Add(member.Get());
+                swaps.Add(member);
+                remove.Load(walk);
+              }
+              if (walk.Next is LinkedListNode<string> step) walk = step;
+              else
+                break;
             }
-            if (walk.Next is LinkedListNode<string> step) {
-              walk = step;
-              stepped = true;
-            }
-            // TODO: if removal can be done with a dispose, can simply break after failed step
-            if (remove is LinkedListNode<string>) {
-              _q.Remove(remove);
-              remove = null;
-            }
-          } while (stepped);
+          }
         }
         swaps.Clear();
       } else {
         break;  // singleton group already added
       }
     }
-  }
-
-  private Swap? findSwap(Swap member, string s) {
-    int inside, outside;
-    if (member.self[member.place1] != s[member.place1]) {
-      if (member.self[member.place2] != s[member.place2]) return null;  // if swappable, already found
-      outside = s.IndexOf(member.self[member.place1]);
-      if (member.self[outside] != s[member.place1]) return null;  // not swappable: 3+ rotation
-      inside = member.place1;
-    } else if (member.self[member.place2] != s[member.place2]) {
-      outside = s.IndexOf(member.self[member.place2]);
-      if (member.self[outside] != s[member.place2]) return null;  // if swappable, already found
-      inside = member.place2;
-    } else {
-      return null;  // if swappable, already found
-    }
-
-    for (int i = 0; i < s.Length; i++) {
-      if (i == inside || i == outside) continue;
-      if (member.self[i] != s[i]) return null;
-    }
-    return new Swap(member.self, s, inside, outside);
   }
 
   private List<Group> _g;
