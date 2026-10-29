@@ -24,6 +24,10 @@ namespace InputParser {
       _root.Options.Add(_verbose);
     }
 
+    public void Add<T>(Option<T> option) {
+      _root.Options.Add(option);
+    }
+
     public bool parse(string[] args) {
       ParseResult result = _root.Parse(args);
       if (result.Errors.Count > 0) {

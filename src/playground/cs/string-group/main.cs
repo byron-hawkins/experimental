@@ -1,45 +1,46 @@
 using System;
 using System.Diagnostics;
+using System.CommandLine;
 using System.Collections.Concurrent;
 
 namespace InputGenerator {
 
-  class StringProcessor {
-    public static string[] expand(string[] samples, pod.Range<int> radixRange, pod.Range<int> swapRange) {
-      Random r = new();
-      List<string> expanded = new(), radixSet = new(), swapSet = new();
+class StringProcessor {
+  public static string[] expand(string[] samples, pod.Range<int> radixRange, pod.Range<int> swapRange) {
+    Random r = new();
+    List<string> expanded = new(), radixSet = new(), swapSet = new();
 
-      foreach (string s in samples) {
-        if (s.Length < 2) throw new InvalidOperationException($"Cannot expand string of length {s.Length}");
+    foreach (string s in samples) {
+      if (s.Length < 2) throw new InvalidOperationException($"Cannot expand string of length {s.Length}");
 
-        radixSet.Clear();
-        swapSet.Clear();
+      radixSet.Clear();
+      swapSet.Clear();
 
-        int radixCount = r.Next(radixRange.min, radixRange.max);
-        for (int i = 0; i < radixCount; i++) {
-          char[] shuffled = s.ToArray();
-          r.Shuffle(shuffled);
-          radixSet.Add(new string(shuffled));
-        }
-
-        int swapCount = r.Next(swapRange.min, swapRange.max);
-        for (int i = 0; i < swapCount; i++) {
-          char[] swapped = radixSet[r.Next(radixSet.Count())].ToArray();
-          int first = r.Next(swapped.Length), second;
-          do { second = r.Next(swapped.Length); } while (first == second);
-          char swap = swapped[second];
-          swapped[second] = swapped[first];
-          swapped[first] = swap;
-          swapSet.Add(new string(swapped));
-        }
-
-        expanded.AddRange(radixSet);
-        expanded.AddRange(swapSet);
+      int radixCount = r.Next(radixRange.min, radixRange.max);
+      for (int i = 0; i < radixCount; i++) {
+        char[] shuffled = s.ToArray();
+        r.Shuffle(shuffled);
+        radixSet.Add(new string(shuffled));
       }
 
-      return expanded.ToArray();
+      int swapCount = r.Next(swapRange.min, swapRange.max);
+      for (int i = 0; i < swapCount; i++) {
+        char[] swapped = radixSet[r.Next(radixSet.Count())].ToArray();
+        int first = r.Next(swapped.Length), second;
+        do { second = r.Next(swapped.Length); } while (first == second);
+        char swap = swapped[second];
+        swapped[second] = swapped[first];
+        swapped[first] = swap;
+        swapSet.Add(new string(swapped));
+      }
+
+      expanded.AddRange(radixSet);
+      expanded.AddRange(swapSet);
     }
+
+    return expanded.ToArray();
   }
+}
 
 }
 
@@ -112,6 +113,10 @@ class Test {
 public class Executable {
   public static void Main(string[] args) {
     InputParser.Quantity cli = new();
+    Option<bool> parallel = new("--parallelize", "-p");
+    parallel.Description = "Parallelize the workload";
+    parallel.DefaultValueFactory = parseResult => false;
+    cli.Add(parallel);
     if (!cli.parse(args)) cli.query();
 
     string[] corpus =
@@ -124,10 +129,12 @@ public class Executable {
     }
 
     ConcurrentDictionary<StringRadix, Anagram> radixGroups = new();
-    foreach (string s in corpus) {
-      StringRadix r = new(s);
-      Anagram a = radixGroups.GetOrAdd(r, new Anagram());
-      a.Add(s);
+
+    bool parallelize = prallel.GetValue();
+    if (parallelize) {
+      Parallel.Radix.Split(radixGroups);
+    } else {
+      Sequential.Radix.Split(radixGroups);
     }
 
     if (cli.arguments.verbose) {

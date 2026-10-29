@@ -3,12 +3,22 @@ using System.Text;
 using System.Diagnostics;
 using System.Collections.Concurrent;
 
+namespace Sequential {
+
 class StringRadix {
-  public StringRadix(string s) {
+  StringRadix(string s) {
     _buckets = new uint[size];
     foreach (char c in s) _buckets[(c - a)]++;
 
     _hash = hash();
+  }
+
+  public static void split(string[] corpus, ConcurrentDictionary<StringRadix, Anagram> d) {
+    foreach (string s in corpus) {
+      StringRadix r = new(s);
+      Anagram a = d.GetOrAdd(r, new Anagram());
+      a.Add(s);
+    }
   }
 
   public static bool operator<(StringRadix left, StringRadix right) {
@@ -209,6 +219,17 @@ class Anagram {
 
   public IEnumerable<Group> groups() { return _g; }
 
+  /*
+      How to split the workload?
+      • each top needs to compare every subsequent
+      • maybe give each task a top, without removing them from _q?
+        • when any walk is removed, others don't need it anymore
+        • what if two threads compete for one walk... is it all the same?
+        • nothing pushes back onto _q
+      • problem: now the swap walk doesn't know which on _q have been grouped
+      • problem: when _q remains full, swap walks are mostly spurious
+        • possible fix: ref count, init by _q position, decrement on _q walk
+   */
   public void decompose() {
     Delta delta = new();
     List<Swap> swaps = new();
@@ -230,6 +251,10 @@ class Anagram {
           }
         }
 
+        // can these run at random?
+        // • each swap traverses _q
+        //   • possible _q.Remove
+        //   • possible swaps.Add
         for (int i = 0; i < swaps.Count(); i++) {
           if (_q.First is null) break;
           walk = _q.First;
@@ -256,4 +281,6 @@ class Anagram {
 
   private List<Group> _g;
   private LinkedList<string> _q;
+}
+
 }

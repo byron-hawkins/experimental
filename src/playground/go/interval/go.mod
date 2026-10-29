@@ -1,0 +1,8 @@
+module experimental/interval
+
+go 1.25.10
+
+require (
+	github.com/rdleal/intervalst v1.5.0 // indirect
+	github.com/rishabhofficial/golang-standard-template-library v0.0.0-20260127062847-9f982fae8836 // indirect
+)

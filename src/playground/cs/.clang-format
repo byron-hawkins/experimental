@@ -13,3 +13,4 @@ AllowShortIfStatementsOnASingleLine: Always
 AllowShortLambdasOnASingleLine: true
 AllowShortLoopsOnASingleLine: true
 AllowShortNamespacesOnASingleLine: false
+NamespaceIndentation: None
