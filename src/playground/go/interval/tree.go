@@ -3,20 +3,27 @@ package main
 import (
 	"fmt"
  "math"
- "math/rand"
- "time"
  "sync"
+ "sync/atomic"
  "github.com/rishabhofficial/golang-standard-template-library/containers/vector"
  "github.com/rdleal/intervalst/interval"
 )
 
 type Item struct {
-	index  int
+	index  int32
 	margin int
 	price  int
 
-  in  *Item
-	out *vector.Vector[Item]
+	best   [3]int
+
+	in  *vector.Vector[Item]
+  out *Item
+}
+
+var ItemIndex atomic.Int32
+
+func NewItem(margin int, price int) (Item) {
+	return Item { ItemIndex.Add(1), margin, price, [3]int{ margin, 0, 0 }, vector.NewVector[Item](), nil }
 }
 
 type Matches struct {
@@ -24,35 +31,20 @@ type Matches struct {
   matched bool
 }
 
+func NewMatches(matches []string, matched bool) (Matches) {
+	return Matches{ matches, matched }
+}
+
 var wait sync.WaitGroup
 
 func compare (a, b int) int { return a - b }
 
 func foo() {
-	i := Item { 0, 8, 3, nil, vector.NewVector[Item]() }
+	i := NewItem(4, 5)
 	fmt.Println("i:", i)
 }
 
-func main() {
-	rand.Seed(time.Now().Unix())
-
-	foo()
-
-	n := make([]int, rand.Intn(8) + 2)
-	for i := range len(n) {
-		n[i] = rand.Intn(100)
-	}
-	for i := range len(n) {
-		fmt.Println(i, ":", n[i])
-	}
-
-	fmt.Println("  ----")
-
-	for index, i := range n {
-		wait.Add(1)
-		go output(index, i)
-	}
-
+func treetest() {
 	tree := interval.NewSearchTree[string,int](compare)
 	tree.Insert(3, 5, "foo")
 	tree.Insert(4, 8, "bar")
@@ -78,16 +70,6 @@ func main() {
 	}
 
 	wait.Wait()
-}
-
-func output(index int, i int) {
-	defer wait.Done()
-	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
-	fmt.Println(index, ":", i)
-}
-
-func NewMatches(matches []string, matched bool) (Matches) {
-	return Matches{ matches, matched }
 }
 
 func search(c chan Matches, tree *interval.SearchTree[string,int], i int) {
