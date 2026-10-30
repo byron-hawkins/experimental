@@ -27,11 +27,11 @@ func NewItem(margin int, price int) (Item) {
 }
 
 type Matches struct {
-	s       []string
+	s       []Item
   matched bool
 }
 
-func NewMatches(matches []string, matched bool) (Matches) {
+func NewMatches(matches []Item, matched bool) (Matches) {
 	return Matches{ matches, matched }
 }
 
@@ -44,46 +44,21 @@ func foo() {
 	fmt.Println("i:", i)
 }
 
-func treetest() {
-	tree := interval.NewSearchTree[string,int](compare)
-	tree.Insert(3, 5, "foo")
-	tree.Insert(4, 8, "bar")
-	tree.Insert(6, math.MaxInt, "zot")
+func treewalk(input []Input) {
+	fmt.Println("• walk", len(input), "inputs")
 
-	c := make(chan Matches)
+	tree := interval.NewSearchTree[*Item,int](compare)
 
-	for i := range 3 {
-		wait.Add(1)
-		go search(c, tree, i + 4)
-	}
-
-	for i := range 3 {
-		matches := <- c
-	  fmt.Println("•  received matches for ", i)
-	  if (matches.matched) {
-	  	for i := range len(matches.s) {
-	  		fmt.Println("  • matched tree value ", matches.s[i])
-	  	}
-	  } else {
-	  	fmt.Println("  • no matches")
-	  }
-	}
-
-	wait.Wait()
-}
-
-func search(c chan Matches, tree *interval.SearchTree[string,int], i int) {
-	defer wait.Done()
-
-	fmt.Println("•  search tree for ", i)
-	matches := NewMatches(tree.AllIntersections(i, i))
-	if (matches.matched) {
-		for i := range len(matches.s) {
-			fmt.Println("  • matched tree value ", matches.s[i])
+	for _, i := range input {
+		matches, matched := tree.AllIntersections(i.price, i.price)
+		if matched {
+			for _, match := range matches {
+				fmt.Println("• truncate match ", match, "and bind interval")
+			}
+		} else {
+			item := NewItem(i.margin, i.price)
+			tree.Insert(i.price, math.MaxInt32, &item)
 		}
-	} else {
-		fmt.Println("  • no matches")
 	}
-
-	c <- matches
 }
+

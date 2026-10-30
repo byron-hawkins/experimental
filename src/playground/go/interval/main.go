@@ -17,12 +17,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// foo()
-
 	input := generate(itemcount)
-	for i := range max(len(input), 3) {
+	for i := range min(len(input), 3) {
 		fmt.Println(i, ":", input[i])
 	}
 
-	treetest()
+	treewalk(input)
+	// treetest()
 }
