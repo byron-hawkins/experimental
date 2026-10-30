@@ -9,10 +9,17 @@ import (
  "github.com/rdleal/intervalst/interval"
 )
 
+type PriceSpan struct {
+	base  int   // current selling price
+	bound int   // end of the span covered by the enclosing item
+}
+
+func bounded(price PriceSpan) (bool) { return price.bound < math.MaxInt32 }
+
 type Item struct {
 	index  int32
 	margin int
-	price  int
+	price  PriceSpan
 
 	best   [3]int
 
@@ -23,16 +30,7 @@ type Item struct {
 var ItemIndex atomic.Int32
 
 func NewItem(margin int, price int) (Item) {
-	return Item { ItemIndex.Add(1), margin, price, [3]int{ margin, 0, 0 }, vector.NewVector[Item](), nil }
-}
-
-type Matches struct {
-	s       []Item
-  matched bool
-}
-
-func NewMatches(matches []Item, matched bool) (Matches) {
-	return Matches{ matches, matched }
+	return Item { ItemIndex.Add(1), margin, PriceSpan { price, math.MaxInt32 }, [3]int{ margin, 0, 0 }, vector.NewVector[Item](), nil }
 }
 
 var wait sync.WaitGroup
@@ -53,11 +51,15 @@ func treewalk(input []Input) {
 		matches, matched := tree.AllIntersections(i.price, i.price)
 		if matched {
 			for _, match := range matches {
-				fmt.Println("• truncate match ", match, "and bind interval")
+				fmt.Print("• truncate the price watch span for match ", match.price.base)
+				if bounded(match.price) {
+				  fmt.Print("-", match.price.bound)
+				}
+				fmt.Println(" at", i.price, "and bind interval")
 			}
 		} else {
 			item := NewItem(i.margin, i.price)
-			tree.Insert(i.price, math.MaxInt32, &item)
+			tree.Insert(item.price.base, item.price.bound, &item)
 		}
 	}
 }
