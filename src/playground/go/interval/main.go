@@ -22,6 +22,8 @@ func main() {
 		fmt.Println(i, ":", input[i])
 	}
 
-	treewalk(input)
+	set := NewPriceSpanSet()
+	set.TreeWalk(input)
+
 	// treetest()
 }
